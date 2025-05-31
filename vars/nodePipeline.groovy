@@ -1,84 +1,36 @@
 def call(Map config = [:]) {
-    // Set defaults
-    def defaults = [
-        appDir: '.',
-        dockerImage: '',
-        testCommand: 'npm test',
-        testReportPath: 'junit.xml',
-        dockerCredentials: 'dockerhub-creds'
-    ]
-    config = defaults + config
-
-    if (!config.dockerImage) {
-        error('dockerImage parameter is required')
-    }
-
     pipeline {
         agent any
-        
+        environment {
+            DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
+            IMAGE_NAME = "${config.imageName ?: 'my-node-app'}"
+        }
+        stages {
             stage('Install Dependencies') {
                 steps {
-                    script {
-                        dir(env.APP_DIR) {
-                            // Remove existing node_modules if any
-                            sh 'rm -rf node_modules package-lock.json'
-                            
-                            // Verify Node.js version being used
-                            sh 'node --version'
-                            sh 'npm --version'
-                            
-                            // Fresh install
-                            sh 'npm ci'
-                        }
-                    }
+                    sh 'npm install'
                 }
             }
             stage('Run Tests') {
                 steps {
-                    script {
-                        dir(config.appDir) {
-                            sh 'rm -f junit.xml || true'
-                            sh config.testCommand
-                        }
-                    }
-                }
-                post {
-                    always {
-                        junit "${config.appDir}/${config.testReportPath}"
-                    }
+                    sh 'npm test'
                 }
             }
-            
             stage('Build Docker Image') {
                 steps {
                     script {
-                        dir(config.appDir) {
-                            sh "docker build -t ${config.dockerImage} ."
-                        }
+                        dockerImage = docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}")
                     }
                 }
             }
-            
             stage('Push to DockerHub') {
                 steps {
                     script {
-                        withCredentials([usernamePassword(
-                            credentialsId: config.dockerCredentials,
-                            usernameVariable: 'DOCKER_USER',
-                            passwordVariable: 'DOCKER_PASS'
-                        )]) {
-                            sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
-                            sh "docker push ${config.dockerImage}"
+                        docker.withRegistry('', DOCKERHUB_CREDENTIALS) {
+                            dockerImage.push()
                         }
                     }
                 }
-            }
-        }
-        
-        post {
-            always {
-                sh 'docker logout'
-                cleanWs()
             }
         }
     }
