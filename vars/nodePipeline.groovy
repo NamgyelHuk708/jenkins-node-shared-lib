@@ -1,21 +1,16 @@
 def call(Map config = [:]) {
-    // Default configuration values
+    // Set defaults
     def defaults = [
-        appDir: '.',               // Default to root directory
-        dockerImage: '',           // Required - no default
-        dockerCredentials: 'dockerhub-creds', // Jenkins credentials ID
-        testScript: 'npm test',    // Default test command
-        buildScript: 'npm run build' // Default build command
+        appDir: '.',
+        dockerImage: '',
+        testCommand: 'npm test'
     ]
-    
-    // Merge user config with defaults
     config = defaults + config
-    
-    // Validate required parameters
+
     if (!config.dockerImage) {
-        error('dockerImage parameter is required')
+        error "dockerImage parameter is required"
     }
-    
+
     pipeline {
         agent any
         
@@ -24,8 +19,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         dir(config.appDir) {
-                            echo "Installing dependencies in ${config.appDir}"
-                            sh 'npm ci' // Clean install for CI environments
+                            sh 'npm ci'
                         }
                     }
                 }
@@ -35,8 +29,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         dir(config.appDir) {
-                            echo "Running tests"
-                            sh config.testScript
+                            sh config.testCommand
                         }
                     }
                 }
@@ -46,7 +39,6 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         dir(config.appDir) {
-                            echo "Building Docker image"
                             sh "docker build -t ${config.dockerImage} ."
                         }
                     }
@@ -56,9 +48,8 @@ def call(Map config = [:]) {
             stage('Push to DockerHub') {
                 steps {
                     script {
-                        echo "Pushing to DockerHub"
                         withCredentials([usernamePassword(
-                            credentialsId: config.dockerCredentials,
+                            credentialsId: 'dockerhub-creds',
                             usernameVariable: 'DOCKER_USER',
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
@@ -72,7 +63,6 @@ def call(Map config = [:]) {
         
         post {
             always {
-                echo "Cleaning up Docker credentials"
                 sh 'docker logout'
             }
         }
