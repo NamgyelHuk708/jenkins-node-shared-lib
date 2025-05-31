@@ -1,0 +1,8 @@
+== Node.js Pipeline Utilities
+
+Provides common Node.js pipeline operations:
+
+- installDependencies([appDir]): Installs npm dependencies
+- runTests([appDir]): Runs npm tests
+- buildDockerImage(appDir, imageName, [dockerfile]): Builds Docker image
+- pushToDockerHub(imageName, [credentialsId]): Pushes to Docker Hub
