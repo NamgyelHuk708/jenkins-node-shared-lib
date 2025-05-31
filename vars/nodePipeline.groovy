@@ -16,23 +16,23 @@ def call(Map config = [:]) {
     pipeline {
         agent any
         
-        stages {
-            stage('Checkout') {
-                steps {
-                    checkout scm
-                }
-            }
-            
             stage('Install Dependencies') {
                 steps {
                     script {
-                        dir(config.appDir) {
+                        dir(env.APP_DIR) {
+                            // Remove existing node_modules if any
+                            sh 'rm -rf node_modules package-lock.json'
+                            
+                            // Verify Node.js version being used
+                            sh 'node --version'
+                            sh 'npm --version'
+                            
+                            // Fresh install
                             sh 'npm ci'
                         }
                     }
                 }
             }
-            
             stage('Run Tests') {
                 steps {
                     script {
