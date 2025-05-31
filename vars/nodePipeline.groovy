@@ -3,13 +3,10 @@ def call(Map config = [:]) {
     def defaults = [
         appDir: '.',
         dockerImage: '',
-        testCommand: 'npm test'
+        testCommand: 'npm test',
+        dockerCredentials: 'dockerhub-creds'
     ]
     config = defaults + config
-
-    if (!config.dockerImage) {
-        error "dockerImage parameter is required"
-    }
 
     pipeline {
         agent any
@@ -33,6 +30,11 @@ def call(Map config = [:]) {
                         }
                     }
                 }
+                post {
+                    always {
+                        junit "${config.appDir}/junit.xml"
+                    }
+                }
             }
             
             stage('Build Docker Image') {
@@ -49,7 +51,7 @@ def call(Map config = [:]) {
                 steps {
                     script {
                         withCredentials([usernamePassword(
-                            credentialsId: 'dockerhub-creds',
+                            credentialsId: config.dockerCredentials,
                             usernameVariable: 'DOCKER_USER',
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
@@ -64,6 +66,7 @@ def call(Map config = [:]) {
         post {
             always {
                 sh 'docker logout'
+                cleanWs()
             }
         }
     }
